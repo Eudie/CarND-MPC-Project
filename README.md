@@ -3,6 +3,78 @@ Self-Driving Car Engineer Nanodegree Program
 
 ---
 
+
+## Rubric Points
+
+- **The Model**: *Student describes their model in detail. This includes the state, actuators and update equations.*
+
+The kinematic model includes the vehicle's x and y coordinates, orientation angle (psi), and velocity, as well as the cross-track error and psi error (epsi). Actuator outputs are acceleration and delta (steering angle). The model combines the state and actuations from the previous timestep to calculate the state for the current timestep based on the equations below:
+
+    x[t] = x[t-1] + v[t-1] * cos(psi[t-1]) * dt
+    y[t] = y[t-1] + v[t-1] * sin(psi[t-1]) * dt
+    psi[t] = psi[t-1] + v[t-1] / Lf * delta[t-1] * dt
+    v[t] = v[t-1] + a[t-1] * dt
+    cte[t] = f(x[t-1]) - y[t-1] + v[t-1] * sin(epsi[t-1]) * dt
+    epsi[t] = psi[t] - psides[t-1] + v[t-1] * delta[t-1] / Lf * dt
+    
+Where:
+
+- `x, y` : Car's position.
+- `psi` : Car's heading direction.
+- `v` : Car's velocity.
+- `cte` : Cross-track error.
+- `epsi` : Orientation error.
+
+Those values are considered the state of the model. In addition to that, `Lf` is the distance between the car of mass and the front wheels (this is provided by Udacity's seed project). The other two values are the model output:
+
+- `a` : Car's acceleration (throttle).
+- `delta` : Steering angle.
+
+The objective is to find the acceleration (`a`) and the steering angle(`delta`) in the way it will minimize an objective function that is the combination of different factors:
+
+- Square sum of `cte` and `epsi`.
+- Square sum of the difference actuators to penalize a lot of actuator's actions.
+- Square sum of the difference between two consecutive actuator values to penalize sharp changes.
+
+
+
+- **Timestep Length and Elapsed Duration (N & dt)**: *Student discusses the reasoning behind the chosen N (timestep length) and dt (elapsed duration between timesteps) values. Additionally the student details the previous values tried.*
+
+The number of points(N) and the time interval(dt) define the prediction horizon. The number of points impacts the controller performance as well. With too many points the controller starts to run slower, and some times it went wild very easily. After trying with N from 10 to 20 and dt 100 to 500 milliseconds, I decided to leave them fixed to 10 and 100 milliseconds to have a better result tuning the other parameters.
+
+- **Polynomial Fitting and MPC Preprocessing**: *A polynomial is fitted to waypoints. If the student preprocesses waypoints, the vehicle state, and/or actuators prior to the MPC procedure it is described.*
+
+The waypoints provided by the simulator are transformed to the car coordinate system at ./src/main.cpp from line 100 to line 106. Then a 3rd-degree polynomial is fitted to the transformed waypoints. These polynomial coefficients are used to calculate the cte and epsi later on. They are used by the solver as well to create a reference trajectory.
+
+- **Model Predictive Control with Latency**: *The student implements Model Predictive Control that handles a 100 millisecond latency. Student provides details on how they deal with latency.*
+
+A latency of 100ms was artificially included before sending actuations to the simulator to mimic typical response times for real world cars. The latency factor was then included in the state vector before sending it to the model calculation.
+
+          const double dt = 0.1;
+          const double Lf = 2.67;
+          // Predict state after latency
+          // x, y and psi are all zero after transformation above
+          double pred_px = 0.0 + v * dt; // Since psi is zero, cos(0) = 1, can leave out
+          const double pred_py = 0.0; // Since sin(0) = 0, y stays as 0 (y + v * 0 * dt)
+          double pred_psi = 0.0 + v * -delta / Lf * dt;
+          double pred_v = v + a * dt;
+          double pred_cte = cte + v * sin(epsi) * dt;
+          double pred_epsi = epsi + v * -delta / Lf * dt;
+
+          // Feed in the predicted state values
+          Eigen::VectorXd state(6);
+          state << pred_px, pred_py, pred_psi, pred_v, pred_cte, pred_epsi;
+
+
+          auto vars = mpc.Solve(state, coeffs);
+
+
+
+
+
+### Result
+[Video](https://youtu.be/0veoXxT7zBs)
+
 ## Dependencies
 
 * cmake >= 3.5
